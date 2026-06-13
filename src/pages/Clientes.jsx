@@ -3,22 +3,38 @@ import { supabase } from '../lib/supabase'
 import { scoreClient, suggestAction } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle, getEstadoLabel } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
-import { Plus, Search, Brain, Zap, Phone } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { Plus, Search, Brain, Zap, Phone, UserCheck } from 'lucide-react'
 import ModalCliente from '../components/ModalCliente'
 
 export default function Clientes() {
   const { t, lang } = useLang()
+  const { user } = useAuth()
+  const isAdmin = user?.rol === 'admin'
+
   const [clientes, setClientes] = useState([])
+  const [agentes, setAgentes] = useState([])
   const [filtro, setFiltro] = useState('todos')
+  const [filtroAgente, setFiltroAgente] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
   const [modal, setModal] = useState(null)
   const [aiLoading, setAiLoading] = useState(null)
 
-  useEffect(() => { fetchClientes() }, [])
+  useEffect(() => {
+    fetchClientes()
+    if (isAdmin) fetchAgentes()
+  }, [])
 
   async function fetchClientes() {
-    const { data } = await supabase.from('clientes').select('*').order('created_at', { ascending: false })
+    let query = supabase.from('clientes').select('*').order('created_at', { ascending: false })
+    if (!isAdmin) query = query.eq('agente_id', user.id)
+    const { data } = await query
     if (data) setClientes(data)
+  }
+
+  async function fetchAgentes() {
+    const { data } = await supabase.from('usuarios').select('id, nombre').eq('rol', 'agente')
+    if (data) setAgentes(data)
   }
 
   async function handleScore(cliente) {
@@ -44,10 +60,15 @@ export default function Clientes() {
 
   const filtrados = clientes
     .filter(c => filtro === 'todos' || c.estado === filtro)
+    .filter(c => filtroAgente === 'todos' || c.agente_id === filtroAgente)
     .filter(c => {
       const q = busqueda.toLowerCase()
       return !q || c.nombre?.toLowerCase().includes(q) || c.empresa?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
     })
+
+  const headers = isAdmin
+    ? [t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', t('acciones')]
+    : [t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', t('acciones')]
 
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -69,7 +90,7 @@ export default function Clientes() {
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', width: '300px' }}>
+        <div style={{ position: 'relative', width: '260px' }}>
           <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#4a6fa5' }} />
           <input
             type="text" placeholder={t('buscar')} value={busqueda}
@@ -81,6 +102,19 @@ export default function Clientes() {
             }}
           />
         </div>
+
+        {/* Filtro por agente — solo admin */}
+        {isAdmin && (
+          <select value={filtroAgente} onChange={e => setFiltroAgente(e.target.value)} style={{
+            padding: '8px 14px', background: '#0d1117', border: '1px solid #1a2744',
+            borderRadius: '9px', fontSize: '13px', color: '#e2e8f0', outline: 'none', cursor: 'pointer',
+          }}>
+            <option value="todos">Todos los agentes</option>
+            {agentes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+          </select>
+        )}
+
+        {/* Filtros por estado */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button onClick={() => setFiltro('todos')} style={{
             padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
@@ -100,21 +134,22 @@ export default function Clientes() {
       </div>
 
       {/* Tabla */}
-      <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'hidden', flex: 1 }}>
+      <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'auto', flex: 1 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #1a2744' }}>
-              {[t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', t('acciones')].map(h => (
+              {headers.map(h => (
                 <th key={h} style={{
                   textAlign: 'left', fontSize: '11px', fontWeight: '600',
                   color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
+                  whiteSpace: 'nowrap',
                 }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtrados.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
+              <tr><td colSpan={headers.length} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
                 No hay clientes en esta categoría
               </td></tr>
             ) : filtrados.map((c, i) => {
@@ -127,7 +162,14 @@ export default function Clientes() {
                 >
                   <td style={{ padding: '14px 18px' }}>
                     <button onClick={() => setModal(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#e2e8f0' }}>{c.nombre}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ fontSize: '14px', fontWeight: '600', color: '#e2e8f0' }}>{c.nombre}</p>
+                        {c.reasignado && (
+                          <span style={{ fontSize: '10px', fontWeight: '600', padding: '2px 7px', borderRadius: '10px', background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                            Reasignado
+                          </span>
+                        )}
+                      </div>
                       <p style={{ fontSize: '12px', color: '#4a6fa5', marginTop: '1px' }}>{c.email}</p>
                     </button>
                   </td>
@@ -137,20 +179,27 @@ export default function Clientes() {
                     <span style={{
                       fontSize: '11px', fontWeight: '600', padding: '4px 10px', borderRadius: '20px',
                       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+                      whiteSpace: 'nowrap',
                     }}>{getEstadoLabel(c.estado, lang)}</span>
                   </td>
+                  {isAdmin && (
+                    <td style={{ padding: '14px 18px' }}>
+                      <p style={{ fontSize: '12px', fontWeight: '600', color: '#60a5fa' }}>{c.agente_nombre || '—'}</p>
+                      {c.agente_anterior && (
+                        <p style={{ fontSize: '11px', color: '#4a6fa5' }}>Antes: {c.agente_anterior}</p>
+                      )}
+                    </td>
+                  )}
                   <td style={{ padding: '14px 18px' }}>
                     {c.ai_score ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '50%',
-                          background: c.ai_nivel === 'alto' ? 'rgba(16,185,129,0.15)' : c.ai_nivel === 'medio' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '13px', fontWeight: '700',
-                          color: c.ai_nivel === 'alto' ? '#34d399' : c.ai_nivel === 'medio' ? '#fbbf24' : '#f87171',
-                          border: `1px solid ${c.ai_nivel === 'alto' ? 'rgba(16,185,129,0.3)' : c.ai_nivel === 'medio' ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
-                        }}>{c.ai_score}</div>
-                      </div>
+                      <div style={{
+                        width: '36px', height: '36px', borderRadius: '50%',
+                        background: c.ai_nivel === 'alto' ? 'rgba(16,185,129,0.15)' : c.ai_nivel === 'medio' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '13px', fontWeight: '700',
+                        color: c.ai_nivel === 'alto' ? '#34d399' : c.ai_nivel === 'medio' ? '#fbbf24' : '#f87171',
+                        border: `1px solid ${c.ai_nivel === 'alto' ? 'rgba(16,185,129,0.3)' : c.ai_nivel === 'medio' ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                      }}>{c.ai_score}</div>
                     ) : (
                       <span style={{ fontSize: '12px', color: '#2d4a7a' }}>{t('sin_calcular')}</span>
                     )}

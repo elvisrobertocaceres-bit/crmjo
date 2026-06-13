@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase'
 import { summarizeCall, generarSpeech } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
-import { X, Save, Phone, Brain, Building2, Mail, User, MessageSquare, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { X, Save, Phone, Brain, Building2, Mail, User, MessageSquare, Sparkles, ChevronDown, ChevronUp, UserCheck } from 'lucide-react'
 
 function Input({ label, icon: Icon, ...props }) {
   return (
@@ -30,27 +31,37 @@ function Input({ label, icon: Icon, ...props }) {
 
 export default function ModalCliente({ cliente, onClose, onSave }) {
   const { t, lang } = useLang()
+  const { user } = useAuth()
+  const isAdmin = user?.rol === 'admin'
   const isNew = !cliente
   const [form, setForm] = useState({
     nombre: cliente?.nombre || '',
     empresa: cliente?.empresa || '',
     email: cliente?.email || '',
     telefono: cliente?.telefono || '',
-    estado: cliente?.estado || 'potencial',
+    estado: cliente?.estado || 'recien_llegado',
     notas: cliente?.notas || '',
   })
   const [llamadaNota, setLlamadaNota] = useState('')
-  const [resultadoLlamada, setResultadoLlamada] = useState(null) // 'atendio' | 'no_contesta' | 'colgo'
+  const [resultadoLlamada, setResultadoLlamada] = useState(null)
   const [loading, setLoading] = useState(false)
   const [aiResumen, setAiResumen] = useState(null)
   const [speeches, setSpeeches] = useState(null)
   const [speechLoading, setSpeechLoading] = useState(false)
   const [speechExpandido, setSpeechExpandido] = useState(null)
   const [historialLlamadas, setHistorialLlamadas] = useState([])
+  const [agentes, setAgentes] = useState([])
+  const [agenteSeleccionado, setAgenteSeleccionado] = useState(cliente?.agente_id || '')
 
   useEffect(() => {
     if (!isNew) fetchHistorial()
+    if (isAdmin) fetchAgentes()
   }, [])
+
+  async function fetchAgentes() {
+    const { data } = await supabase.from('usuarios').select('id, nombre').eq('rol', 'agente')
+    if (data) setAgentes(data)
+  }
 
   async function fetchHistorial() {
     const { data } = await supabase
@@ -73,13 +84,30 @@ export default function ModalCliente({ cliente, onClose, onSave }) {
 
   function change(field, value) { setForm(f => ({ ...f, [field]: value })) }
 
+  async function handleReasignar() {
+    if (!agenteSeleccionado) return alert('Seleccioná un agente')
+    const agente = agentes.find(a => a.id === agenteSeleccionado)
+    if (!agente) return
+    setLoading(true)
+    await supabase.from('clientes').update({
+      agente_id: agente.id,
+      agente_nombre: agente.nombre,
+      reasignado: true,
+      agente_anterior: cliente.agente_nombre || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', cliente.id)
+    setLoading(false)
+    onSave()
+  }
+
   async function handleSave() {
     if (!form.nombre.trim()) return alert('El nombre es requerido')
     setLoading(true)
     const now = new Date().toISOString()
     let error
     if (isNew) {
-      const res = await supabase.from('clientes').insert({ ...form, created_at: now, updated_at: now, cantidad_llamadas: 0 })
+      const agenteData = !isAdmin ? { agente_id: user.id, agente_nombre: user.nombre } : {}
+      const res = await supabase.from('clientes').insert({ ...form, ...agenteData, created_at: now, updated_at: now, cantidad_llamadas: 0 })
       error = res.error
     } else {
       const res = await supabase.from('clientes').update({ ...form, updated_at: now }).eq('id', cliente.id)
@@ -436,6 +464,48 @@ export default function ModalCliente({ cliente, onClose, onSave }) {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Reasignación — solo admin en cliente existente */}
+          {!isNew && isAdmin && (
+            <div style={{ background: '#080c14', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <UserCheck size={14} color="#a78bfa" />
+                </div>
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#e2e8f0' }}>Reasignar cliente</p>
+                  {cliente.agente_nombre && (
+                    <p style={{ fontSize: '11px', color: '#4a6fa5', marginTop: '1px' }}>
+                      Agente actual: <span style={{ color: '#60a5fa' }}>{cliente.agente_nombre}</span>
+                      {cliente.agente_anterior && ` · Antes: ${cliente.agente_anterior}`}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <select value={agenteSeleccionado} onChange={e => setAgenteSeleccionado(e.target.value)} style={{
+                  flex: 1, padding: '9px 12px', background: '#0d1117', border: '1px solid #1a2744',
+                  borderRadius: '9px', fontSize: '13px', color: '#e2e8f0', outline: 'none',
+                }}>
+                  <option value="">Seleccioná un agente</option>
+                  {agentes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </select>
+                <button onClick={handleReasignar} disabled={loading || !agenteSeleccionado} style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '9px 16px', borderRadius: '9px', fontSize: '12px', fontWeight: '600',
+                  background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
+                  color: '#a78bfa', cursor: 'pointer', whiteSpace: 'nowrap',
+                  opacity: loading || !agenteSeleccionado ? 0.5 : 1,
+                }}>
+                  <UserCheck size={13} /> Reasignar
+                </button>
+              </div>
             </div>
           )}
 

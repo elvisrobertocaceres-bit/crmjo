@@ -289,6 +289,7 @@ export function t(key, lang = 'es') {
 }
 
 export const ESTADOS_CONFIG = [
+  { key: 'recien_llegado',  color: '#ffffff', bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.25)', label: { es: 'Recién Llegado', en: 'New Lead', pt: 'Novo Lead', ru: 'Новый лид', uk: 'Новий лід', de: 'Neuer Lead', fr: 'Nouveau lead', it: 'Nuovo lead', pl: 'Nowy lead' } },
   { key: 'potencial',       color: '#34d399', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',   label: { es: 'Potencial',          en: 'Potential',       pt: 'Potencial',         ru: 'Потенциальный',   uk: 'Потенційний',    de: 'Potenzial',        fr: 'Potentiel',       it: 'Potenziale',   pl: 'Potencjalny'    } },
   { key: 'no_potencial',    color: '#f87171', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',    label: { es: 'No Potencial',       en: 'No Potential',    pt: 'Sem Potencial',     ru: 'Нет потенциала',  uk: 'Без потенціалу', de: 'Kein Potenzial',   fr: 'Non potentiel',   it: 'Non potenziale', pl: 'Brak potencjału' } },
   { key: 'en_proceso',      color: '#fbbf24', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',   label: { es: 'En Proceso',         en: 'In Progress',     pt: 'Em Andamento',      ru: 'В процессе',      uk: 'В процесі',      de: 'In Bearbeitung',   fr: 'En cours',        it: 'In corso',     pl: 'W trakcie'      } },
