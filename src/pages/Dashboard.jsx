@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { Users, PhoneCall, TrendingUp, Clock } from 'lucide-react'
 
 export default function Dashboard() {
+  const { user } = useAuth()
+  const isAdmin = user?.rol === 'admin'
   const [stats, setStats] = useState({ total: 0, potenciales: 0, en_proceso: 0, llamadas_hoy: 0 })
   const [recientes, setRecientes] = useState([])
 
   useEffect(() => { fetchStats(); fetchRecientes() }, [])
 
+  function applyAgentFilter(query) {
+    return isAdmin ? query : query.eq('agente_id', user?.id)
+  }
+
   async function fetchStats() {
-    const { data } = await supabase.from('clientes').select('estado')
+    const { data } = await applyAgentFilter(supabase.from('clientes').select('estado'))
     if (!data) return
     setStats({
       total: data.length,
@@ -20,7 +27,9 @@ export default function Dashboard() {
   }
 
   async function fetchRecientes() {
-    const { data } = await supabase.from('clientes').select('*').order('updated_at', { ascending: false }).limit(6)
+    const { data } = await applyAgentFilter(
+      supabase.from('clientes').select('*').order('updated_at', { ascending: false }).limit(6)
+    )
     if (data) setRecientes(data)
   }
 
