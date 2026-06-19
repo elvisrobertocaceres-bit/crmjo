@@ -4,7 +4,7 @@ import { scoreClient, suggestAction } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle, getEstadoLabel } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
-import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader } from 'lucide-react'
+import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users } from 'lucide-react'
 import ModalCliente from '../components/ModalCliente'
 import { crearCuentaComing } from '../lib/coming'
 
@@ -22,7 +22,10 @@ export default function Clientes() {
   const [aiLoading, setAiLoading] = useState(null)
   const [comingLoading, setComingLoading] = useState(null)
   const [comingModal, setComingModal] = useState(null)
-  const [comingResult, setComingResult] = useState(null) // { accountNumber, password, capital }
+  const [comingResult, setComingResult] = useState(null)
+  const [selected, setSelected] = useState(new Set())
+  const [modalAsignar, setModalAsignar] = useState(false)
+  const [asignando, setAsignando] = useState(false)
 
   useEffect(() => {
     fetchClientes()
@@ -86,8 +89,38 @@ export default function Clientes() {
     setComingLoading(null)
   }
 
+  function toggleSelect(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    if (selected.size === filtrados.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtrados.map(c => c.id)))
+    }
+  }
+
+  async function confirmarAsignacion(agenteId, agenteNombre) {
+    setAsignando(true)
+    const ids = Array.from(selected)
+    await Promise.all(ids.map(id =>
+      supabase.from('clientes').update({ agente_id: agenteId, agente_nombre: agenteNombre, reasignado: true }).eq('id', id)
+    ))
+    setAsignando(false)
+    setModalAsignar(false)
+    setSelected(new Set())
+    fetchClientes()
+  }
+
+  const allSelected = filtrados.length > 0 && selected.size === filtrados.length
+
   const headers = isAdmin
-    ? [t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
+    ? ['', t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
     : [t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
 
   return (
@@ -153,12 +186,42 @@ export default function Clientes() {
         </div>
       </div>
 
+      {/* Barra bulk — solo admin */}
+      {isAdmin && selected.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '12px',
+          padding: '10px 16px', background: 'rgba(37,99,235,0.1)',
+          border: '1px solid rgba(37,99,235,0.3)', borderRadius: '10px',
+        }}>
+          <Users size={15} color="#60a5fa" />
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#60a5fa' }}>
+            {selected.size} seleccionado{selected.size > 1 ? 's' : ''}
+          </span>
+          <button onClick={() => setModalAsignar(true)} style={{
+            padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+            background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff',
+            border: 'none', cursor: 'pointer',
+          }}>Asignar agente</button>
+          <button onClick={() => setSelected(new Set())} style={{
+            padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+            background: 'transparent', color: '#4a6fa5',
+            border: '1px solid #1a2744', cursor: 'pointer',
+          }}>Limpiar</button>
+        </div>
+      )}
+
       {/* Tabla */}
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'auto', flex: 1 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #1a2744' }}>
-              {headers.map(h => (
+              {isAdmin && (
+                <th style={{ padding: '14px 8px 14px 18px', width: '36px' }}>
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                    style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6' }} />
+                </th>
+              )}
+              {headers.filter(h => h !== '').map(h => (
                 <th key={h} style={{
                   textAlign: 'left', fontSize: '11px', fontWeight: '600',
                   color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
@@ -176,10 +239,16 @@ export default function Clientes() {
               const s = getEstadoStyle(c.estado)
               return (
                 <tr key={c.id}
-                  style={{ borderBottom: i < filtrados.length - 1 ? '1px solid #111827' : 'none', transition: 'background 0.1s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#111827'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  style={{ borderBottom: i < filtrados.length - 1 ? '1px solid #111827' : 'none', transition: 'background 0.1s', background: selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
+                  onMouseEnter={e => { if (!selected.has(c.id)) e.currentTarget.style.background = '#111827' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
                 >
+                  {isAdmin && (
+                    <td style={{ padding: '14px 8px 14px 18px', width: '36px' }}>
+                      <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
+                        style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6' }} />
+                    </td>
+                  )}
                   <td style={{ padding: '14px 18px' }}>
                     <button onClick={() => setModal(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -300,6 +369,80 @@ export default function Clientes() {
       {comingResult && (
         <ModalComingResult result={comingResult} onClose={() => setComingResult(null)} />
       )}
+
+      {modalAsignar && (
+        <ModalAsignarAgente
+          agentes={agentes}
+          count={selected.size}
+          loading={asignando}
+          onClose={() => setModalAsignar(false)}
+          onConfirm={confirmarAsignacion}
+        />
+      )}
+    </div>
+  )
+}
+
+function ModalAsignarAgente({ agentes, count, loading, onClose, onConfirm }) {
+  const [agenteId, setAgenteId] = useState('')
+
+  function handleConfirm() {
+    const agente = agentes.find(a => a.id === agenteId)
+    if (!agente) return
+    onConfirm(agente.id, agente.nombre)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+    }} onClick={onClose}>
+      <div style={{
+        background: '#0d1117', border: '1px solid #1a2744', borderRadius: '18px',
+        padding: '32px', width: '400px', boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Users size={20} color="#60a5fa" />
+          </div>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#f1f5f9' }}>Asignar agente</div>
+            <div style={{ fontSize: '12px', color: '#4a6fa5', marginTop: '2px' }}>{count} cliente{count > 1 ? 's' : ''} seleccionado{count > 1 ? 's' : ''}</div>
+          </div>
+        </div>
+
+        <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+          Seleccioná el agente
+        </label>
+        <select value={agenteId} onChange={e => setAgenteId(e.target.value)} style={{
+          width: '100%', padding: '10px 14px', marginBottom: '24px',
+          background: '#111827', border: '1px solid #1a2744', borderRadius: '9px',
+          fontSize: '13px', color: agenteId ? '#e2e8f0' : '#4a6fa5', outline: 'none', cursor: 'pointer',
+        }}>
+          <option value="">— Elegí un agente —</option>
+          {agentes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+        </select>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '10px', borderRadius: '9px', fontSize: '13px', fontWeight: '600',
+            border: '1px solid #1a2744', background: 'transparent', color: '#4a6fa5', cursor: 'pointer',
+          }}>Cancelar</button>
+          <button onClick={handleConfirm} disabled={!agenteId || loading} style={{
+            flex: 2, padding: '10px', borderRadius: '9px', fontSize: '13px', fontWeight: '700',
+            border: 'none', background: !agenteId || loading ? '#1a2744' : 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+            color: !agenteId || loading ? '#4a6fa5' : '#fff',
+            cursor: !agenteId || loading ? 'not-allowed' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}>
+            {loading ? '⏳ Asignando...' : `✓ Asignar a ${count} cliente${count > 1 ? 's' : ''}`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
