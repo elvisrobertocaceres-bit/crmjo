@@ -4,8 +4,9 @@ import { scoreClient, suggestAction } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle, getEstadoLabel } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
-import { Plus, Search, Brain, Zap, Phone, UserCheck } from 'lucide-react'
+import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader } from 'lucide-react'
 import ModalCliente from '../components/ModalCliente'
+import { crearCuentaComing } from '../lib/coming'
 
 export default function Clientes() {
   const { t, lang } = useLang()
@@ -19,6 +20,9 @@ export default function Clientes() {
   const [busqueda, setBusqueda] = useState('')
   const [modal, setModal] = useState(null)
   const [aiLoading, setAiLoading] = useState(null)
+  const [comingLoading, setComingLoading] = useState(null)
+  const [comingModal, setComingModal] = useState(null)
+  const [comingResult, setComingResult] = useState(null) // { accountNumber, password, capital }
 
   useEffect(() => {
     fetchClientes()
@@ -66,9 +70,25 @@ export default function Clientes() {
       return !q || c.nombre?.toLowerCase().includes(q) || c.empresa?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
     })
 
+  async function handleCrearComing(cliente, capitalInicial) {
+    setComingLoading(cliente.id)
+    try {
+      const [apellido = ''] = (cliente.nombre || '').split(' ').slice(1)
+      const nombre = (cliente.nombre || '').split(' ')[0]
+      const result = await crearCuentaComing({ nombre, apellido, email: cliente.email || '', capital: Number(capitalInicial) || 0 })
+      await supabase.from('clientes').update({ coming_account: result.accountNumber }).eq('id', cliente.id)
+      fetchClientes()
+      setComingModal(null)
+      setComingResult({ accountNumber: result.accountNumber, password: result.password, capital: result.capital })
+    } catch (e) {
+      alert('Error: ' + e.message)
+    }
+    setComingLoading(null)
+  }
+
   const headers = isAdmin
-    ? [t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', t('acciones')]
-    : [t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', t('acciones')]
+    ? [t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
+    : [t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
 
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -209,6 +229,32 @@ export default function Clientes() {
                       {c.cantidad_llamadas || 0}
                     </span>
                   </td>
+                  {/* Coming column */}
+                  <td style={{ padding: '14px 18px' }}>
+                    {c.coming_account ? (
+                      <span style={{
+                        fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px',
+                        background: 'rgba(240,180,41,0.12)', color: '#f0b429',
+                        border: '1px solid rgba(240,180,41,0.3)', whiteSpace: 'nowrap',
+                      }}>📈 {c.coming_account}</span>
+                    ) : (
+                      <button
+                        onClick={() => setComingModal(c)}
+                        disabled={comingLoading === c.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                          padding: '5px 11px', borderRadius: '8px', fontSize: '11px', fontWeight: '600',
+                          border: '1px solid rgba(240,180,41,0.3)', background: 'rgba(240,180,41,0.08)',
+                          color: '#f0b429', cursor: 'pointer', whiteSpace: 'nowrap',
+                          opacity: comingLoading === c.id ? 0.5 : 1,
+                        }}
+                      >
+                        {comingLoading === c.id ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <TrendingUp size={11} />}
+                        Crear cuenta
+                      </button>
+                    )}
+                  </td>
+
                   <td style={{ padding: '14px 18px' }}>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button onClick={() => handleScore(c)} disabled={aiLoading === c.id + '_score'} title={t('score_ia')} style={{
@@ -241,6 +287,161 @@ export default function Clientes() {
           onSave={() => { setModal(null); fetchClientes() }}
         />
       )}
+
+      {comingModal && (
+        <ModalComingAccount
+          cliente={comingModal}
+          loading={comingLoading === comingModal.id}
+          onClose={() => setComingModal(null)}
+          onConfirm={(capital) => handleCrearComing(comingModal, capital)}
+        />
+      )}
+
+      {comingResult && (
+        <ModalComingResult result={comingResult} onClose={() => setComingResult(null)} />
+      )}
+    </div>
+  )
+}
+
+function ModalComingResult({ result, onClose }) {
+  const [copied, setCopied] = useState(false)
+
+  function copy() {
+    navigator.clipboard.writeText(`Cuenta: ${result.accountNumber}\nContraseña: ${result.password}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
+    }}>
+      <div style={{
+        background: '#0d1117', border: '1px solid #1a2744', borderRadius: '20px',
+        padding: '36px', width: '420px', boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+        textAlign: 'center',
+      }}>
+        {/* Icono éxito */}
+        <div style={{
+          width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 20px',
+          background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px',
+        }}>✓</div>
+
+        <div style={{ fontSize: '18px', fontWeight: '800', color: '#f1f5f9', marginBottom: '6px' }}>
+          Cuenta creada en Coming
+        </div>
+        <div style={{ fontSize: '13px', color: '#4a6fa5', marginBottom: '28px' }}>
+          Entregá estas credenciales al cliente para que acceda al portal
+        </div>
+
+        {/* Credenciales */}
+        <div style={{
+          background: '#080c14', border: '1px solid #1a2744', borderRadius: '14px',
+          padding: '20px', marginBottom: '20px', textAlign: 'left',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div>
+              <div style={{ fontSize: '10px', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Número de cuenta</div>
+              <div style={{ fontSize: '22px', fontWeight: '800', color: '#f0b429', letterSpacing: '1px' }}>{result.accountNumber}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '10px', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Capital asignado</div>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: '#34d399' }}>${Number(result.capital).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid #1a2744', paddingTop: '14px' }}>
+            <div style={{ fontSize: '10px', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '3px' }}>Contraseña temporal</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#e2e8f0', fontFamily: 'monospace', letterSpacing: '2px' }}>{result.password}</div>
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={copy} style={{
+            flex: 1, padding: '11px', borderRadius: '10px', fontSize: '13px', fontWeight: '600',
+            border: '1px solid #1a2744', background: copied ? 'rgba(16,185,129,0.1)' : 'transparent',
+            color: copied ? '#34d399' : '#4a6fa5', cursor: 'pointer', transition: 'all .2s',
+          }}>
+            {copied ? '✓ Copiado' : '📋 Copiar credenciales'}
+          </button>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '11px', borderRadius: '10px', fontSize: '13px', fontWeight: '700',
+            border: 'none', background: 'linear-gradient(135deg, #f0b429, #fcd34d)',
+            color: '#000', cursor: 'pointer',
+          }}>
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModalComingAccount({ cliente, loading, onClose, onConfirm }) {
+  const [capital, setCapital] = useState('')
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
+    }} onClick={onClose}>
+      <div style={{
+        background: '#0d1117', border: '1px solid #1a2744', borderRadius: '16px',
+        padding: '32px', width: '400px', boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+      }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '50%',
+            background: 'rgba(240,180,41,0.15)', border: '1px solid rgba(240,180,41,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '20px',
+          }}>📈</div>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#f1f5f9' }}>Crear cuenta Coming</div>
+            <div style={{ fontSize: '12px', color: '#4a6fa5', marginTop: '2px' }}>{cliente.nombre} · {cliente.email || 'Sin email'}</div>
+          </div>
+        </div>
+
+        {/* Capital input */}
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+            Capital inicial (USD)
+          </label>
+          <input
+            type="number" placeholder="Ej: 1000" value={capital}
+            onChange={e => setCapital(e.target.value)}
+            autoFocus
+            onKeyDown={e => e.key === 'Enter' && onConfirm(capital)}
+            style={{
+              width: '100%', padding: '10px 14px',
+              background: '#111827', border: '1px solid #1a2744', borderRadius: '9px',
+              fontSize: '14px', color: '#e2e8f0', outline: 'none',
+            }}
+          />
+          <p style={{ fontSize: '11px', color: '#2d4a7a', marginTop: '6px' }}>
+            Se creará la cuenta y se asignará este capital automáticamente.
+          </p>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose} style={{
+            flex: 1, padding: '10px', borderRadius: '9px', fontSize: '13px', fontWeight: '600',
+            border: '1px solid #1a2744', background: 'transparent', color: '#4a6fa5', cursor: 'pointer',
+          }}>Cancelar</button>
+          <button onClick={() => onConfirm(capital)} disabled={loading} style={{
+            flex: 2, padding: '10px', borderRadius: '9px', fontSize: '13px', fontWeight: '700',
+            border: 'none', background: 'linear-gradient(135deg, #f0b429, #fcd34d)',
+            color: '#000', cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}>
+            {loading ? '⏳ Creando...' : '✓ Crear cuenta'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
