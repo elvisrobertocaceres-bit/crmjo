@@ -215,18 +215,20 @@ export default function Clientes() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #1a2744' }}>
-              {isAdmin && (
-                <th style={{ padding: '14px 8px 14px 18px', width: '36px' }}>
-                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                    style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6' }} />
-                </th>
-              )}
-              {headers.filter(h => h !== '').map(h => (
+              {headers.filter(h => h !== '').map((h, idx) => (
                 <th key={h} style={{
                   textAlign: 'left', fontSize: '11px', fontWeight: '600',
                   color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
                   whiteSpace: 'nowrap',
-                }}>{h}</th>
+                }}>
+                  {isAdmin && idx === 0
+                    ? <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }} />
+                        {h}
+                      </div>
+                    : h}
+                </th>
               ))}
             </tr>
           </thead>
@@ -243,13 +245,12 @@ export default function Clientes() {
                   onMouseEnter={e => { if (!selected.has(c.id)) e.currentTarget.style.background = '#111827' }}
                   onMouseLeave={e => { e.currentTarget.style.background = selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
                 >
-                  {isAdmin && (
-                    <td style={{ padding: '14px 8px 14px 18px', width: '36px' }}>
-                      <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
-                        style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6' }} />
-                    </td>
-                  )}
                   <td style={{ padding: '14px 18px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {isAdmin && (
+                        <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
+                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }} />
+                      )}
                     <button onClick={() => setModal(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <p style={{ fontSize: '14px', fontWeight: '600', color: '#e2e8f0' }}>{c.nombre}</p>
@@ -261,6 +262,7 @@ export default function Clientes() {
                       </div>
                       <p style={{ fontSize: '12px', color: '#4a6fa5', marginTop: '1px' }}>{c.email}</p>
                     </button>
+                    </div>
                   </td>
                   <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8' }}>{c.empresa || '—'}</td>
                   <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8' }}>{c.telefono || '—'}</td>
