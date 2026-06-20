@@ -128,7 +128,7 @@ export default function Clientes() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#f1f5f9', letterSpacing: '-0.5px' }}>{t('clientes')}</h2>
-          <p style={{ fontSize: '13px', color: '#4a6fa5', marginTop: '2px' }}>{filtrados.length} {t('registros')}</p>
+          <p style={{ fontSize: '13px', color: '#4a6fa5', marginTop: '2px' }}>{filtrados.length} {t('registros')} {isAdmin && <span style={{ color: '#2563eb', fontWeight: '700' }}>· ADMIN ✓</span>}</p>
         </div>
         <button onClick={() => setModal('nuevo')} style={{
           display: 'flex', alignItems: 'center', gap: '8px',
