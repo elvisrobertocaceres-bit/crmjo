@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Save, Eye, EyeOff, Globe } from 'lucide-react'
+import { Save, Eye, EyeOff, Globe, Lock } from 'lucide-react'
 import { IDIOMAS } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 
 export default function Configuracion() {
   const { t, lang, cambiarIdioma } = useLang()
+  const { user } = useAuth()
+  const isAdmin = user?.rol === 'admin'
   const [form, setForm] = useState({ supabase_url: '', supabase_key: '', claude_key: '' })
   const [show, setShow] = useState({})
   const [saved, setSaved] = useState(false)
+  const [passForm, setPassForm] = useState({ actual: '', nueva: '', confirmar: '' })
+  const [passMsg, setPassMsg] = useState(null)
 
   useEffect(() => {
     setForm({
@@ -25,6 +31,19 @@ export default function Configuracion() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  async function handleCambiarPassword(e) {
+    e.preventDefault()
+    setPassMsg(null)
+    if (passForm.nueva !== passForm.confirmar) return setPassMsg({ ok: false, txt: 'Las contraseñas no coinciden' })
+    if (passForm.nueva.length < 4) return setPassMsg({ ok: false, txt: 'La contraseña debe tener al menos 4 caracteres' })
+    const { data } = await supabase.from('usuarios').select('id').eq('id', user.id).eq('password', passForm.actual).single()
+    if (!data) return setPassMsg({ ok: false, txt: 'La contraseña actual es incorrecta' })
+    await supabase.from('usuarios').update({ password: passForm.nueva }).eq('id', user.id)
+    setPassForm({ actual: '', nueva: '', confirmar: '' })
+    setPassMsg({ ok: true, txt: '¡Contraseña actualizada!' })
+    setTimeout(() => setPassMsg(null), 3000)
+  }
+
   const fields = [
     { key: 'supabase_url', label: 'Supabase URL', placeholder: 'https://xxxx.supabase.co' },
     { key: 'supabase_key', label: 'Supabase Anon Key', placeholder: 'eyJ...' },
@@ -37,6 +56,40 @@ export default function Configuracion() {
         <h2 style={{ fontSize: '22px', fontWeight: '700', color: '#f1f5f9', letterSpacing: '-0.5px' }}>{t('configuracion')}</h2>
         <p style={{ fontSize: '13px', color: '#4a6fa5', marginTop: '2px' }}>{t('credenciales')}</p>
       </div>
+
+      {/* Cambiar contraseña — todos los usuarios */}
+      <form onSubmit={handleCambiarPassword} style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', padding: '22px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Lock size={15} color="#34d399" />
+          </div>
+          <p style={{ fontSize: '14px', fontWeight: '600', color: '#e2e8f0' }}>Cambiar contraseña</p>
+        </div>
+        {[
+          { key: 'actual', label: 'Contraseña actual' },
+          { key: 'nueva', label: 'Nueva contraseña' },
+          { key: 'confirmar', label: 'Confirmar nueva contraseña' },
+        ].map(f => (
+          <div key={f.key}>
+            <label style={{ fontSize: '11px', fontWeight: '600', color: '#4a6fa5', textTransform: 'uppercase', letterSpacing: '0.7px', display: 'block', marginBottom: '6px' }}>{f.label}</label>
+            <input type="password" value={passForm[f.key]} onChange={e => setPassForm(p => ({ ...p, [f.key]: e.target.value }))}
+              style={{ width: '100%', padding: '10px 14px', background: '#080c14', border: '1px solid #1a2744', borderRadius: '10px', fontSize: '13px', color: '#e2e8f0', outline: 'none' }}
+              onFocus={e => e.target.style.borderColor = '#34d399'}
+              onBlur={e => e.target.style.borderColor = '#1a2744'}
+            />
+          </div>
+        ))}
+        {passMsg && (
+          <div style={{ padding: '10px 14px', borderRadius: '8px', fontSize: '13px', fontWeight: '500',
+            background: passMsg.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+            border: passMsg.ok ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(239,68,68,0.2)',
+            color: passMsg.ok ? '#34d399' : '#f87171',
+          }}>{passMsg.txt}</div>
+        )}
+        <button type="submit" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 18px', borderRadius: '9px', fontSize: '13px', fontWeight: '600', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399', cursor: 'pointer' }}>
+          <Lock size={13} /> Actualizar contraseña
+        </button>
+      </form>
 
       {/* Selector de idioma */}
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', padding: '22px' }}>

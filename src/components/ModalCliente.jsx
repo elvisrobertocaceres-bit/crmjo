@@ -514,10 +514,28 @@ export default function ModalCliente({ cliente, onClose, onSave }) {
         {/* Footer */}
         <div style={{
           padding: '18px 28px', borderTop: '1px solid #111827',
-          display: 'flex', justifyContent: 'flex-end', gap: '10px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
           background: '#080c14', borderRadius: '0 0 20px 20px',
           position: 'sticky', bottom: 0,
         }}>
+          {/* Eliminar — solo admin en cliente existente */}
+          {!isNew && isAdmin ? (
+            <button onClick={async () => {
+              if (!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+              await supabase.from('llamadas').delete().eq('cliente_id', cliente.id)
+              await supabase.from('clientes').delete().eq('id', cliente.id)
+              onSave()
+            }} style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '9px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '500',
+              background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+              color: '#f87171', cursor: 'pointer',
+            }}>
+              🗑 Eliminar cliente
+            </button>
+          ) : <div />}
+
+          <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} style={{
             padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: '500',
             background: 'transparent', border: '1px solid #1a2744', color: '#4a6fa5', cursor: 'pointer',
@@ -534,7 +552,7 @@ export default function ModalCliente({ cliente, onClose, onSave }) {
           }}>
             <Save size={14} /> {isNew ? t('crear') : t('guardar')}
           </button>
-        </div>
+          </div>
 
       </div>
     </div>
