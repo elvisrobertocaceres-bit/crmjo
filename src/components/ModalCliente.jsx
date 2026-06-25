@@ -556,5 +556,6 @@ export default function ModalCliente({ cliente, onClose, onSave }) {
 
       </div>
     </div>
+  </div>
   )
 }
