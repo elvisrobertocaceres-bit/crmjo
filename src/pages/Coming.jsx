@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { listarClientesComing, actualizarCapital, darBono, procesarRetiro, crearCuentaComing } from '../lib/coming'
+import { listarClientesComing, actualizarCapital, darBono, procesarRetiro, crearCuentaComing, eliminarClienteComing } from '../lib/coming'
 import { supabase } from '../lib/supabase'
-import { TrendingUp, TrendingDown, Gift, Eye, X, Loader, RefreshCw, Plus, User, Search } from 'lucide-react'
+import { TrendingUp, TrendingDown, Gift, Eye, X, Loader, RefreshCw, Plus, User, Search, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const TIPOS = [
@@ -26,6 +26,11 @@ export default function ComingPage() {
 
   // Modal detalle
   const [detalle, setDetalle] = useState(null)
+
+  // Modal eliminar
+  const [eliminarModal, setEliminarModal] = useState(null)
+  const [elimLoading, setElimLoading] = useState(false)
+  const [elimMsg, setElimMsg] = useState(null)
 
   // Modal crear cuenta
   const [crearModal, setCrearModal] = useState(false)
@@ -61,6 +66,17 @@ export default function ComingPage() {
       setTimeout(() => { setModal(null); setMonto(''); setDescripcion(''); setOpMsg(null); fetchData() }, 1200)
     } catch (e) { setOpMsg({ ok: false, txt: e.message }) }
     setOpLoading(false)
+  }
+
+  async function handleEliminar() {
+    setElimLoading(true)
+    setElimMsg(null)
+    try {
+      await eliminarClienteComing(eliminarModal.account_number)
+      setElimMsg({ ok: true })
+      setTimeout(() => { setEliminarModal(null); setElimMsg(null); fetchData() }, 1000)
+    } catch (e) { setElimMsg({ ok: false, txt: e.message }) }
+    setElimLoading(false)
   }
 
   async function handleCrearCuenta() {
@@ -155,8 +171,8 @@ export default function ComingPage() {
       {/* Tabla */}
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'hidden', flex: 1 }}>
         {/* Encabezado */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #111827' }}>
-          {['Cliente', 'Cuenta #', 'Balance', 'Acreditar', 'Bono', 'Retiro', 'Detalle'].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #111827' }}>
+          {['Cliente', 'Cuenta #', 'Balance', 'Acreditar', 'Bono', 'Retiro', 'Detalle', ''].map(h => (
             <span key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</span>
           ))}
         </div>
@@ -176,7 +192,7 @@ export default function ComingPage() {
           </div>
         ) : filtrados.map((c, i) => (
           <div key={c.account_number || i}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < filtrados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < filtrados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
             onMouseEnter={e => e.currentTarget.style.background = '#0a0f1a'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
@@ -213,6 +229,11 @@ export default function ComingPage() {
             {/* Detalle */}
             <button onClick={() => setDetalle(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '7px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid #1a2744', color: '#4a6fa5', cursor: 'pointer' }}>
               <Eye size={13} />
+            </button>
+
+            {/* Eliminar */}
+            <button onClick={() => { setEliminarModal(c); setElimMsg(null) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '7px', borderRadius: '8px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', color: '#f87171', cursor: 'pointer' }}>
+              <Trash2 size={13} />
             </button>
           </div>
         ))}
@@ -341,6 +362,36 @@ export default function ComingPage() {
               <button onClick={handleCrearCuenta} disabled={crearLoading} style={{ ...actionBtn, background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)', color: '#60a5fa', opacity: crearLoading ? 0.7 : 1 }}>
                 {crearLoading ? <><Loader size={14} style={spin} /> Creando...</> : <><Plus size={14} /> Crear cuenta</>}
               </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal eliminar ── */}
+      {eliminarModal && (
+        <div style={overlay}>
+          <div style={{ ...card, width: '380px', gap: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <p style={{ fontSize: '16px', fontWeight: '700', color: '#f87171' }}>Eliminar cuenta</p>
+              <button onClick={() => setEliminarModal(null)} style={closeBtn}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '16px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '10px' }}>
+              <p style={{ fontSize: '13px', color: '#e2e8f0', marginBottom: '6px' }}>
+                ¿Eliminar a <strong>{eliminarModal.nombre} {eliminarModal.apellido}</strong>?
+              </p>
+              <p style={{ fontSize: '12px', color: '#f87171', fontFamily: 'monospace' }}>{eliminarModal.account_number}</p>
+              <p style={{ fontSize: '12px', color: '#4a6fa5', marginTop: '8px' }}>Esta acción no se puede deshacer. Se eliminarán todos los datos y transacciones.</p>
+            </div>
+            {elimMsg && <MsgBox ok={elimMsg.ok} txt={elimMsg.ok ? '✅ Cuenta eliminada' : elimMsg.txt} />}
+            {!elimMsg?.ok && (
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setEliminarModal(null)} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'transparent', border: '1px solid #1a2744', color: '#4a6fa5', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleEliminar} disabled={elimLoading} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', cursor: 'pointer', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: elimLoading ? 0.7 : 1 }}>
+                  {elimLoading ? <><Loader size={13} style={spin} /> Eliminando...</> : <><Trash2 size={13} /> Eliminar</>}
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -62,6 +62,16 @@ export async function actualizarCapital(accountNumber, amount, type = 'deposit',
   return await res.json()
 }
 
+export async function eliminarClienteComing(account_number) {
+  const token = await getAdminToken()
+  const res = await fetch(`${API}/admin/clients/${account_number}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Error al eliminar cliente')
+  return await res.json()
+}
+
 export async function darBono(accountNumber, amount, description = 'Bono') {
   return actualizarCapital(accountNumber, amount, 'bonus', description)
 }
