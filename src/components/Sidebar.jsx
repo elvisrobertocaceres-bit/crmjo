@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, PhoneCall, Upload, Bot, Settings, UserCog, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, PhoneCall, Upload, Bot, Settings, UserCog, LogOut, TrendingUp } from 'lucide-react'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -15,7 +15,9 @@ export default function Sidebar() {
     { to: '/importar',  icon: Upload,           key: 'importar' },
     { to: '/ai',        icon: Bot,              key: 'ia_chat' },
     { to: '/config',    icon: Settings,         key: 'configuracion' },
+    { to: '/coming',   icon: TrendingUp,       key: 'coming', label: 'Coming' },
     ...(isAdmin ? [{ to: '/agentes', icon: UserCog, key: 'agentes', label: 'Agentes' }] : []),
+    ...(isAdmin ? [{ to: '/coming', icon: TrendingUp, key: 'coming', label: 'Coming' }] : []),
   ]
 
   return (

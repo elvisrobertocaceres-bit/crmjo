@@ -3,7 +3,10 @@ const ADMIN_PASS = import.meta.env.VITE_COMING_ADMIN_PASS
 
 let _token = null
 
-async function getAdminToken() {
+// URL del panel admin de Coming (para embeber dentro del CRM)
+export const COMING_ADMIN_URL = import.meta.env.VITE_COMING_ADMIN_URL || 'https://coming-315.pages.dev/admin.html'
+
+export async function getAdminToken() {
   if (_token) return _token
   const res = await fetch(`${API}/login`, {
     method: 'POST',
@@ -39,6 +42,15 @@ export async function listarClientesComing() {
   return await res.json()
 }
 
+export async function obtenerClienteComing(accountNumber) {
+  const token = await getAdminToken()
+  const res = await fetch(`${API}/admin/clients/${accountNumber}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Error al obtener cliente')
+  return await res.json()
+}
+
 export async function actualizarCapital(accountNumber, amount, type = 'deposit', description = '') {
   const token = await getAdminToken()
   const res = await fetch(`${API}/admin/clients/${accountNumber}/transaction`, {
@@ -48,4 +60,12 @@ export async function actualizarCapital(accountNumber, amount, type = 'deposit',
   })
   if (!res.ok) throw new Error('Error al actualizar capital')
   return await res.json()
+}
+
+export async function darBono(accountNumber, amount, description = 'Bono') {
+  return actualizarCapital(accountNumber, amount, 'bonus', description)
+}
+
+export async function procesarRetiro(accountNumber, amount, description = 'Retiro') {
+  return actualizarCapital(accountNumber, amount, 'withdrawal', description)
 }
