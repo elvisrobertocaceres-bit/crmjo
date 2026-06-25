@@ -42,9 +42,9 @@ export async function listarClientesComing() {
   return await res.json()
 }
 
-export async function obtenerClienteComing(accountNumber) {
+export async function obtenerClienteComing(account_number) {
   const token = await getAdminToken()
-  const res = await fetch(`${API}/admin/clients/${accountNumber}`, {
+  const res = await fetch(`${API}/admin/clients/${account_number}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error('Error al obtener cliente')
