@@ -15,8 +15,8 @@ export default function Sidebar() {
     { to: '/importar',  icon: Upload,           key: 'importar' },
     { to: '/ai',        icon: Bot,              key: 'ia_chat' },
     { to: '/config',    icon: Settings,   key: 'configuracion' },
-    { to: '/coming',   icon: TrendingUp, key: 'coming',  label: 'Coming' },
-    ...(isAdmin ? [{ to: '/agentes', icon: UserCog, key: 'agentes', label: 'Agentes' }] : []),
+    ...(isAdmin ? [{ to: '/agentes', icon: UserCog,     key: 'agentes', label: 'Agentes' }] : []),
+    ...(isAdmin ? [{ to: '/coming',  icon: TrendingUp,  key: 'coming',  label: 'Coming' }] : []),
   ]
 
   return (

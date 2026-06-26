@@ -10,7 +10,6 @@ import AIChat from './pages/AIChat'
 import Configuracion from './pages/Configuracion'
 import Agentes from './pages/Agentes'
 import ComingPage from './pages/Coming'
-import Coming from './pages/Coming'
 
 export default function App() {
   const { user } = useAuth()
@@ -29,9 +28,8 @@ export default function App() {
           <Route path="/importar" element={<Importar />} />
           <Route path="/ai" element={<AIChat />} />
           <Route path="/config" element={<Configuracion />} />
-          <Route path="/coming" element={<ComingPage />} />
           <Route path="/agentes" element={<Agentes />} />
-          <Route path="/coming" element={<Coming />} />
+          <Route path="/coming" element={<ComingPage />} />
         </Routes>
       </main>
     </div>
