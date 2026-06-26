@@ -4,7 +4,7 @@ import { scoreClient, suggestAction } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle, getEstadoLabel } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
-import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users } from 'lucide-react'
+import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users, Trash2 } from 'lucide-react'
 import ModalCliente from '../components/ModalCliente'
 import { crearCuentaComing } from '../lib/coming'
 
@@ -26,6 +26,7 @@ export default function Clientes() {
   const [selected, setSelected] = useState(new Set())
   const [modalAsignar, setModalAsignar] = useState(false)
   const [asignando, setAsignando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
 
   useEffect(() => {
@@ -114,6 +115,18 @@ export default function Clientes() {
     ))
     setAsignando(false)
     setModalAsignar(false)
+    setSelected(new Set())
+    fetchClientes()
+  }
+
+  async function eliminarSeleccionados() {
+    const ids = Array.from(selected)
+    if (!ids.length) return
+    if (!confirm(`¿Eliminar ${ids.length} cliente${ids.length > 1 ? 's' : ''}? Esta acción no se puede deshacer.`)) return
+    setBorrando(true)
+    const { error } = await supabase.from('clientes').delete().in('id', ids)
+    setBorrando(false)
+    if (error) { alert('Error al eliminar: ' + error.message); return }
     setSelected(new Set())
     fetchClientes()
   }
@@ -236,6 +249,14 @@ export default function Clientes() {
             background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff',
             border: 'none', cursor: 'pointer',
           }}>Asignar agente</button>
+          <button onClick={eliminarSeleccionados} disabled={borrando} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700',
+            background: 'rgba(239,68,68,0.12)', color: '#f87171',
+            border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer', opacity: borrando ? 0.5 : 1,
+          }}>
+            <Trash2 size={13} /> {borrando ? 'Eliminando…' : `Eliminar (${selected.size})`}
+          </button>
           <button onClick={() => setSelected(new Set())} style={{
             padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
             background: 'transparent', color: '#4a6fa5',
