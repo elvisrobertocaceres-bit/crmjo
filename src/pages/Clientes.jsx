@@ -26,6 +26,7 @@ export default function Clientes() {
   const [selected, setSelected] = useState(new Set())
   const [modalAsignar, setModalAsignar] = useState(false)
   const [asignando, setAsignando] = useState(false)
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
 
   useEffect(() => {
     fetchClientes()
@@ -119,9 +120,42 @@ export default function Clientes() {
 
   const allSelected = filtrados.length > 0 && selected.size === filtrados.length
 
-  const headers = isAdmin
-    ? ['', t('nombre'), t('empresa'), t('telefono'), t('estado'), 'Agente', t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
-    : [t('nombre'), t('empresa'), t('telefono'), t('estado'), t('score_ia'), 'Llamadas', 'Coming', t('acciones')]
+  // Columnas con su clave de ordenamiento (type null = no ordenable)
+  const columns = [
+    { key: 'nombre',   label: t('nombre'),   type: 'text' },
+    { key: 'empresa',  label: t('empresa'),  type: 'text' },
+    { key: 'telefono', label: t('telefono'), type: 'text' },
+    { key: 'estado',   label: t('estado'),   type: 'text' },
+    ...(isAdmin ? [{ key: 'agente_nombre', label: 'Agente', type: 'text' }] : []),
+    { key: 'ai_score', label: t('score_ia'), type: 'num' },
+    { key: 'cantidad_llamadas', label: 'Llamadas', type: 'num' },
+    { key: 'coming',   label: 'Coming',      type: 'bool' },
+    { key: 'acciones', label: t('acciones'), type: null },
+  ]
+
+  function handleSort(col) {
+    if (!col.type) return
+    setSort(prev => prev.key === col.key
+      ? { key: col.key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      // Por defecto: numérico/booleano (Coming) muestra primero los "más/sí"; texto A→Z
+      : { key: col.key, dir: (col.type === 'num' || col.type === 'bool') ? 'desc' : 'asc' })
+  }
+
+  const ordenados = (() => {
+    if (!sort.key) return filtrados
+    const col = columns.find(c => c.key === sort.key)
+    const acc = col.type === 'num'
+      ? (c) => Number(c[sort.key] || 0)
+      : col.type === 'bool'
+        ? (c) => (c.coming_account ? 1 : 0)
+        : (c) => (c[sort.key] || '').toString().toLowerCase()
+    return [...filtrados].sort((a, b) => {
+      const va = acc(a), vb = acc(b)
+      if (va < vb) return sort.dir === 'asc' ? -1 : 1
+      if (va > vb) return sort.dir === 'asc' ? 1 : -1
+      return 0
+    })
+  })()
 
   return (
     <div style={{ padding: '32px 36px', height: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -215,33 +249,39 @@ export default function Clientes() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #1a2744' }}>
-              {headers.filter(h => h !== '').map((h, idx) => (
-                <th key={h} style={{
-                  textAlign: 'left', fontSize: '11px', fontWeight: '600',
-                  color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {isAdmin && idx === 0
-                    ? <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <input type="checkbox" checked={allSelected} onChange={toggleAll}
-                          style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }} />
-                        {h}
-                      </div>
-                    : h}
+              {columns.map((col, idx) => (
+                <th key={col.key}
+                  onClick={() => handleSort(col)}
+                  style={{
+                    textAlign: 'left', fontSize: '11px', fontWeight: '600',
+                    color: sort.key === col.key ? '#60a5fa' : '#2d4a7a',
+                    textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
+                    whiteSpace: 'nowrap', userSelect: 'none', cursor: col.type ? 'pointer' : 'default',
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: idx === 0 ? '10px' : '5px' }}>
+                    {isAdmin && idx === 0 && (
+                      <input type="checkbox" checked={allSelected} onChange={toggleAll} onClick={e => e.stopPropagation()}
+                        style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }} />
+                    )}
+                    {col.label}
+                    {col.type && sort.key === col.key && (
+                      <span style={{ fontSize: '9px' }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>
+                    )}
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtrados.length === 0 ? (
-              <tr><td colSpan={headers.length} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
+            {ordenados.length === 0 ? (
+              <tr><td colSpan={columns.length} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
                 No hay clientes en esta categoría
               </td></tr>
-            ) : filtrados.map((c, i) => {
+            ) : ordenados.map((c, i) => {
               const s = getEstadoStyle(c.estado)
               return (
                 <tr key={c.id}
-                  style={{ borderBottom: i < filtrados.length - 1 ? '1px solid #111827' : 'none', transition: 'background 0.1s', background: selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
+                  style={{ borderBottom: i < ordenados.length - 1 ? '1px solid #111827' : 'none', transition: 'background 0.1s', background: selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
                   onMouseEnter={e => { if (!selected.has(c.id)) e.currentTarget.style.background = '#111827' }}
                   onMouseLeave={e => { e.currentTarget.style.background = selected.has(c.id) ? 'rgba(37,99,235,0.06)' : 'transparent' }}
                 >

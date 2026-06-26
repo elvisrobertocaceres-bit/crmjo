@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { listarClientesComing, actualizarCapital, darBono, procesarRetiro, crearCuentaComing, eliminarClienteComing } from '../lib/coming'
+import { listarClientesComing, actualizarCapital, darBono, procesarRetiro, crearCuentaComing, eliminarClienteComing, toggleIA } from '../lib/coming'
 import { supabase } from '../lib/supabase'
-import { TrendingUp, TrendingDown, Gift, Eye, X, Loader, RefreshCw, Plus, User, Search, Trash2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Gift, Eye, X, Loader, RefreshCw, Plus, User, Search, Trash2, Bot } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const TIPOS = [
@@ -31,6 +31,9 @@ export default function ComingPage() {
   const [eliminarModal, setEliminarModal] = useState(null)
   const [elimLoading, setElimLoading] = useState(false)
   const [elimMsg, setElimMsg] = useState(null)
+
+  // Toggle IA por cliente
+  const [iaLoading, setIaLoading] = useState(null)
 
   // Modal crear cuenta
   const [crearModal, setCrearModal] = useState(false)
@@ -77,6 +80,20 @@ export default function ComingPage() {
       setTimeout(() => { setEliminarModal(null); setElimMsg(null); fetchData() }, 1000)
     } catch (e) { setElimMsg({ ok: false, txt: e.message }) }
     setElimLoading(false)
+  }
+
+  async function handleToggleIA(c) {
+    const acc = c.account_number
+    const nuevo = !(c.ia_enabled === true)
+    setIaLoading(acc)
+    setClientes(prev => prev.map(x => x.account_number === acc ? { ...x, ia_enabled: nuevo } : x))
+    try {
+      await toggleIA(acc, nuevo)
+    } catch {
+      // revertir en caso de error
+      setClientes(prev => prev.map(x => x.account_number === acc ? { ...x, ia_enabled: !nuevo } : x))
+    }
+    setIaLoading(null)
   }
 
   async function handleCrearCuenta() {
@@ -171,8 +188,8 @@ export default function ComingPage() {
       {/* Tabla */}
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'hidden', flex: 1 }}>
         {/* Encabezado */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #111827' }}>
-          {['Cliente', 'Cuenta #', 'Balance', 'Acreditar', 'Bono', 'Retiro', 'Detalle', ''].map(h => (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.1fr 0.9fr 1fr 1fr 1fr 0.8fr 0.8fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #111827' }}>
+          {['Cliente', 'Cuenta #', 'Balance', 'IA', 'Acreditar', 'Bono', 'Retiro', 'Detalle', ''].map(h => (
             <span key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</span>
           ))}
         </div>
@@ -192,7 +209,7 @@ export default function ComingPage() {
           </div>
         ) : filtrados.map((c, i) => (
           <div key={c.account_number || i}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 1.2fr 1fr 1fr 1fr 1fr 1fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < filtrados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.1fr 0.9fr 1fr 1fr 1fr 0.8fr 0.8fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < filtrados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
             onMouseEnter={e => e.currentTarget.style.background = '#0a0f1a'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
@@ -214,6 +231,21 @@ export default function ComingPage() {
 
             {/* Balance */}
             <span style={{ fontSize: '14px', fontWeight: '800', color: '#34d399' }}>{fmtUSD(c.capital ?? c.balance)}</span>
+
+            {/* Toggle IA */}
+            <button onClick={() => handleToggleIA(c)} disabled={iaLoading === c.account_number}
+              title={c.ia_enabled ? 'IA habilitada — clic para deshabilitar' : 'IA deshabilitada — clic para habilitar'}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                padding: '7px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer',
+                background: c.ia_enabled ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.06)',
+                border: c.ia_enabled ? '1px solid rgba(16,185,129,0.3)' : '1px solid #1a2744',
+                color: c.ia_enabled ? '#34d399' : '#64748b',
+                opacity: iaLoading === c.account_number ? 0.5 : 1,
+              }}>
+              {iaLoading === c.account_number ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Bot size={12} />}
+              {c.ia_enabled ? 'ON' : 'OFF'}
+            </button>
 
             {/* Botones */}
             {TIPOS.map(tipo => (

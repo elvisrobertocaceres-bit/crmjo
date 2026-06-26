@@ -79,3 +79,14 @@ export async function darBono(accountNumber, amount, description = 'Bono') {
 export async function procesarRetiro(accountNumber, amount, description = 'Retiro') {
   return actualizarCapital(accountNumber, amount, 'withdrawal', description)
 }
+
+export async function toggleIA(accountNumber, enabled) {
+  const token = await getAdminToken()
+  const res = await fetch(`${API}/admin/clients/${accountNumber}/ia`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) throw new Error('Error al cambiar el estado de la IA')
+  return await res.json()
+}
