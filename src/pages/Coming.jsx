@@ -35,6 +35,9 @@ export default function ComingPage() {
   // Toggle IA por cliente
   const [iaLoading, setIaLoading] = useState(null)
 
+  // Ordenamiento de tabla
+  const [sort, setSort] = useState({ key: null, dir: 'asc' })
+
   // Modal crear cuenta
   const [crearModal, setCrearModal] = useState(false)
   const [crearForm, setCrearForm] = useState({ nombre: '', apellido: '', email: '', capital: '' })
@@ -127,6 +130,44 @@ export default function ComingPage() {
       (c.account_number || '').toLowerCase().includes(q)
   })
 
+  // Columnas (type null = no ordenable)
+  const columnas = [
+    { label: 'Cliente',   key: 'nombre',         type: 'text' },
+    { label: 'Cuenta #',  key: 'account_number', type: 'text' },
+    { label: 'Balance',   key: 'capital',        type: 'num' },
+    { label: 'IA',        key: 'ia_enabled',     type: 'bool' },
+    { label: 'Acreditar', key: null },
+    { label: 'Bono',      key: null },
+    { label: 'Retiro',    key: null },
+    { label: 'Detalle',   key: null },
+    { label: '',          key: null },
+  ]
+
+  function handleSort(col) {
+    if (!col.type) return
+    setSort(prev => prev.key === col.key
+      ? { key: col.key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key: col.key, dir: (col.type === 'num' || col.type === 'bool') ? 'desc' : 'asc' })
+  }
+
+  const ordenados = (() => {
+    if (!sort.key) return filtrados
+    const col = columnas.find(c => c.key === sort.key)
+    const acc = col.type === 'num'
+      ? (c) => Number(c.capital ?? c.balance ?? 0)
+      : col.type === 'bool'
+        ? (c) => (c.ia_enabled ? 1 : 0)
+        : sort.key === 'nombre'
+          ? (c) => `${c.nombre || c.name || ''} ${c.apellido || ''}`.trim().toLowerCase()
+          : (c) => (c[sort.key] || '').toString().toLowerCase()
+    return [...filtrados].sort((a, b) => {
+      const va = acc(a), vb = acc(b)
+      if (va < vb) return sort.dir === 'asc' ? -1 : 1
+      if (va > vb) return sort.dir === 'asc' ? 1 : -1
+      return 0
+    })
+  })()
+
   const totalCapital = clientes.reduce((sum, c) => sum + (Number(c.capital) || 0), 0)
 
   return (
@@ -189,8 +230,19 @@ export default function ComingPage() {
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'hidden', flex: 1 }}>
         {/* Encabezado */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.1fr 0.9fr 1fr 1fr 1fr 0.8fr 0.8fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #111827' }}>
-          {['Cliente', 'Cuenta #', 'Balance', 'IA', 'Acreditar', 'Bono', 'Retiro', 'Detalle', ''].map(h => (
-            <span key={h} style={{ fontSize: '11px', fontWeight: '600', color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{h}</span>
+          {columnas.map((col, idx) => (
+            <span key={col.label || idx}
+              onClick={() => handleSort(col)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '4px',
+                fontSize: '11px', fontWeight: '600',
+                color: sort.key === col.key && col.key ? '#60a5fa' : '#2d4a7a',
+                textTransform: 'uppercase', letterSpacing: '0.7px',
+                userSelect: 'none', cursor: col.type ? 'pointer' : 'default',
+              }}>
+              {col.label}
+              {col.type && sort.key === col.key && <span style={{ fontSize: '9px' }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+            </span>
           ))}
         </div>
 
@@ -203,13 +255,13 @@ export default function ComingPage() {
             <p style={{ color: '#f87171', fontSize: '13px', marginBottom: '8px' }}>Error: {error}</p>
             <p style={{ color: '#4a6fa5', fontSize: '12px' }}>Verificá que VITE_COMING_API y VITE_COMING_ADMIN_PASS estén configurados en Vercel</p>
           </div>
-        ) : filtrados.length === 0 ? (
+        ) : ordenados.length === 0 ? (
           <div style={{ padding: '60px', textAlign: 'center', color: '#2d4a7a', fontSize: '13px' }}>
             {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay cuentas creadas en Coming aún'}
           </div>
-        ) : filtrados.map((c, i) => (
+        ) : ordenados.map((c, i) => (
           <div key={c.account_number || i}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.1fr 0.9fr 1fr 1fr 1fr 0.8fr 0.8fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < filtrados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.1fr 0.9fr 1fr 1fr 1fr 0.8fr 0.8fr', gap: '12px', padding: '14px 20px', alignItems: 'center', borderBottom: i < ordenados.length - 1 ? '1px solid #0d1220' : 'none', transition: 'background 0.1s' }}
             onMouseEnter={e => e.currentTarget.style.background = '#0a0f1a'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
