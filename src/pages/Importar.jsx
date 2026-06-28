@@ -17,11 +17,30 @@ export default function Importar() {
   const [count, setCount] = useState(0)
   const inputRef = useRef()
 
+  // Parser de una línea CSV que respeta comillas (campos con comas adentro)
+  function parseCSVLine(line) {
+    const out = []
+    let cur = '', inQ = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (inQ) {
+        if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++ } else inQ = false }
+        else cur += ch
+      } else {
+        if (ch === '"') inQ = true
+        else if (ch === ',') { out.push(cur); cur = '' }
+        else cur += ch
+      }
+    }
+    out.push(cur)
+    return out.map(v => v.trim())
+  }
+
   function parseCSV(text) {
-    const lines = text.trim().split('\n')
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+    const lines = text.replace(/\r\n?/g, '\n').trim().split('\n').filter(l => l.trim())
+    const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase())
     return lines.slice(1).map(line => {
-      const vals = line.split(',').map(v => v.trim().replace(/"/g, ''))
+      const vals = parseCSVLine(line)
       const obj = {}
       headers.forEach((h, i) => { obj[h] = vals[i] || '' })
       return obj
@@ -29,17 +48,19 @@ export default function Importar() {
   }
 
   function mapHubspot(row) {
+    const get = (...keys) => { for (const k of keys) { if (row[k] && row[k].trim()) return row[k].trim() } return '' }
+    const nombre =
+      (row['first name'] && row['last name']) ? `${row['first name']} ${row['last name']}`.trim()
+      : (row['firstname'] && row['lastname']) ? `${row['firstname']} ${row['lastname']}`.trim()
+      : get('name', 'nombre', 'nombre completo', 'nombre y apellido', 'full name', 'contacto', 'razón social', 'razon social', 'cliente') || 'Sin nombre'
+    const email = get('email', 'correo', 'e-mail', 'correo electrónico', 'correo electronico')
     return {
-      nombre: row['first name'] && row['last name']
-        ? `${row['first name']} ${row['last name']}`
-        : row['firstname'] && row['lastname']
-        ? `${row['firstname']} ${row['lastname']}`
-        : row['name'] || row['nombre'] || 'Sin nombre',
-      empresa: row['company'] || row['empresa'] || '',
-      email: row['email'] || '',
-      telefono: row['phone number'] || row['phone'] || row['telefono'] || '',
+      nombre,
+      empresa: get('company', 'empresa', 'negocio', 'organización', 'organizacion'),
+      email: email || null,
+      telefono: get('phone number', 'phone', 'telefono', 'teléfono', 'telefono/whatsapp', 'teléfono/whatsapp', 'whatsapp', 'celular', 'móvil', 'movil', 'tel'),
       estado: 'recien_llegado',
-      notas: row['notes'] || row['notas'] || '',
+      notas: get('notes', 'notas', 'observaciones'),
       cantidad_llamadas: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
