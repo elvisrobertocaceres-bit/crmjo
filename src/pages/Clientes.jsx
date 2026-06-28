@@ -8,6 +8,42 @@ import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users, Trash2, Sli
 import ModalCliente from '../components/ModalCliente'
 import { crearCuentaComing } from '../lib/coming'
 
+// Badge Sí/No para campos booleanos
+function boolBadge(v) {
+  if (v === null || v === undefined || v === '') return <span style={{ fontSize: '12px', color: '#2d4a7a' }}>—</span>
+  const yes = v === true || v === 'true' || v === 1 || v === 'si' || v === 'sí'
+  return <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 9px', borderRadius: '20px', background: yes ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.1)', color: yes ? '#34d399' : '#f87171', border: `1px solid ${yes ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)'}` }}>{yes ? 'Sí' : 'No'}</span>
+}
+const fdate = (d) => d ? new Date(d).toLocaleDateString('es-AR') : '—'
+const txt = (v) => (v != null && v !== '') ? v : '—'
+
+// Columnas extra (segmentación / datos comerciales). Ocultas por defecto.
+const EXTRA_COLS = [
+  { key: 'pais',                       label: 'País',                  type: 'text', w: 120, render: c => txt(c.pais) },
+  { key: 'ciudad',                     label: 'Ciudad',                type: 'text', w: 130, render: c => txt(c.ciudad) },
+  { key: 'zona_horaria',               label: 'Zona horaria',          type: 'text', w: 130, render: c => txt(c.zona_horaria) },
+  { key: 'idioma',                     label: 'Idioma',                type: 'text', w: 110, render: c => txt(c.idioma) },
+  { key: 'fuente',                     label: 'Fuente',                type: 'text', w: 130, render: c => txt(c.fuente) },
+  { key: 'campana',                    label: 'Campaña',               type: 'text', w: 140, render: c => txt(c.campana) },
+  { key: 'fecha_ingreso',              label: 'Fecha ingreso',         type: null,   w: 130, render: c => fdate(c.created_at) },
+  { key: 'ultimo_contacto',            label: 'Último contacto',       type: null,   w: 140, render: c => fdate(c.ultima_llamada) },
+  { key: 'proximo_seguimiento',        label: 'Próx. seguimiento',     type: null,   w: 150, render: c => fdate(c.proximo_seguimiento) },
+  { key: 'resultado_ultimo_contacto',  label: 'Result. últ. contacto', type: 'text', w: 170, render: c => txt(c.resultado_ultimo_contacto) },
+  { key: 'subestado',                  label: 'Subestado',             type: 'text', w: 140, render: c => txt(c.subestado) },
+  { key: 'producto_interes',           label: 'Producto interés',      type: 'text', w: 160, render: c => txt(c.producto_interes) },
+  { key: 'decisor',                    label: 'Decisor',               type: 'text', w: 130, render: c => txt(c.decisor) },
+  { key: 'email',                      label: 'Email',                 type: 'text', w: 200, render: c => txt(c.email) },
+  { key: 'whatsapp_valido',            label: 'WhatsApp válido',       type: 'bool', w: 140, render: c => boolBadge(c.whatsapp_valido) },
+  { key: 'objecion',                   label: 'Objeción',              type: 'text', w: 160, render: c => txt(c.objecion) },
+  { key: 'capacidad_pago',             label: 'Capacidad pago',        type: 'text', w: 150, render: c => txt(c.capacidad_pago) },
+  { key: 'valor_potencial',            label: 'Valor potencial',       type: 'num',  w: 140, render: c => (c.valor_potencial != null && c.valor_potencial !== '') ? '$' + Number(c.valor_potencial).toLocaleString('es-AR') : '—' },
+  { key: 'propuesta_enviada',          label: 'Propuesta enviada',     type: 'bool', w: 150, render: c => boolBadge(c.propuesta_enviada) },
+  { key: 'estado_pago',                label: 'Estado de pago',        type: 'text', w: 140, render: c => txt(c.estado_pago) },
+  { key: 'consentimiento_contacto',    label: 'Consent. contacto',     type: 'bool', w: 150, render: c => boolBadge(c.consentimiento_contacto) },
+  { key: 'motivo_perdida',             label: 'Motivo de pérdida',     type: 'text', w: 170, render: c => txt(c.motivo_perdida) },
+]
+const EXTRA_KEYS = EXTRA_COLS.map(c => c.key)
+
 export default function Clientes() {
   const { t, lang } = useLang()
   const { user } = useAuth()
@@ -32,7 +68,7 @@ export default function Clientes() {
 
   // Visibilidad y ancho de columnas (persistido en localStorage)
   const [hiddenCols, setHiddenCols] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('crm_cli_hidden') || '[]')) } catch { return new Set() }
+    try { const s = localStorage.getItem('crm_cli_hidden'); return s ? new Set(JSON.parse(s)) : new Set(EXTRA_KEYS) } catch { return new Set(EXTRA_KEYS) }
   })
   const [colW, setColW] = useState(() => {
     try { return JSON.parse(localStorage.getItem('crm_cli_w') || '{}') } catch { return {} }
@@ -184,6 +220,7 @@ export default function Clientes() {
     { key: 'cantidad_llamadas', label: 'Llamadas', type: 'num', w: 100 },
     { key: 'coming',   label: 'Coming',      type: 'bool', w: 140 },
     { key: 'comentario', label: 'Comentarios', type: null, w: 240 },
+    ...EXTRA_COLS,
     { key: 'acciones', label: t('acciones'), type: null, w: 130, fixed: true },
   ]
   const visibleColumns = columns.filter(c => show(c.key))
@@ -202,7 +239,7 @@ export default function Clientes() {
     const acc = col.type === 'num'
       ? (c) => Number(c[sort.key] || 0)
       : col.type === 'bool'
-        ? (c) => (c.coming_account ? 1 : 0)
+        ? (c) => ((sort.key === 'coming' ? c.coming_account : c[sort.key]) ? 1 : 0)
         : (c) => (c[sort.key] || '').toString().toLowerCase()
     return [...filtrados].sort((a, b) => {
       const va = acc(a), vb = acc(b)
@@ -480,6 +517,13 @@ export default function Clientes() {
                       <span style={{ fontSize: '12px', color: '#2d4a7a' }}>—</span>
                     )}
                   </td>}
+
+                  {/* Columnas extra (segmentación) */}
+                  {EXTRA_COLS.filter(col => show(col.key)).map(col => (
+                    <td key={col.key} style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {col.render(c)}
+                    </td>
+                  ))}
 
                   <td style={{ padding: '14px 18px' }}>
                     <div style={{ display: 'flex', gap: '6px' }}>
