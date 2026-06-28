@@ -4,7 +4,7 @@ import { scoreClient, suggestAction } from '../lib/claude'
 import { ESTADOS_CONFIG, getEstadoStyle, getEstadoLabel } from '../lib/i18n'
 import { useLang } from '../context/LangContext'
 import { useAuth } from '../context/AuthContext'
-import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users, Trash2 } from 'lucide-react'
+import { Plus, Search, Brain, Zap, Phone, TrendingUp, Loader, Users, Trash2, SlidersHorizontal } from 'lucide-react'
 import ModalCliente from '../components/ModalCliente'
 import { crearCuentaComing } from '../lib/coming'
 
@@ -29,6 +29,34 @@ export default function Clientes() {
   const [borrando, setBorrando] = useState(false)
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [comentarios, setComentarios] = useState({}) // cliente_id -> última llamada
+
+  // Visibilidad y ancho de columnas (persistido en localStorage)
+  const [hiddenCols, setHiddenCols] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('crm_cli_hidden') || '[]')) } catch { return new Set() }
+  })
+  const [colW, setColW] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('crm_cli_w') || '{}') } catch { return {} }
+  })
+  const [showColMenu, setShowColMenu] = useState(false)
+
+  useEffect(() => { localStorage.setItem('crm_cli_hidden', JSON.stringify([...hiddenCols])) }, [hiddenCols])
+  useEffect(() => { localStorage.setItem('crm_cli_w', JSON.stringify(colW)) }, [colW])
+
+  const show = (key) => !hiddenCols.has(key)
+  const widthOf = (col) => colW[col.key] || col.w
+  function toggleCol(key) {
+    setHiddenCols(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+  }
+  function startResize(e, col) {
+    e.preventDefault(); e.stopPropagation()
+    const startX = e.clientX
+    const startW = widthOf(col)
+    const onMove = (ev) => setColW(prev => ({ ...prev, [col.key]: Math.max(70, startW + (ev.clientX - startX)) }))
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.body.style.userSelect = '' }
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   useEffect(() => {
     fetchClientes()
@@ -145,19 +173,20 @@ export default function Clientes() {
 
   const allSelected = filtrados.length > 0 && selected.size === filtrados.length
 
-  // Columnas con su clave de ordenamiento (type null = no ordenable)
+  // Columnas: type null = no ordenable; w = ancho por defecto (px); fixed = no se puede ocultar
   const columns = [
-    { key: 'nombre',   label: t('nombre'),   type: 'text' },
-    { key: 'empresa',  label: t('empresa'),  type: 'text' },
-    { key: 'telefono', label: t('telefono'), type: 'text' },
-    { key: 'estado',   label: t('estado'),   type: 'text' },
-    ...(isAdmin ? [{ key: 'agente_nombre', label: 'Agente', type: 'text' }] : []),
-    { key: 'ai_score', label: t('score_ia'), type: 'num' },
-    { key: 'cantidad_llamadas', label: 'Llamadas', type: 'num' },
-    { key: 'coming',   label: 'Coming',      type: 'bool' },
-    { key: 'comentario', label: 'Comentarios', type: null },
-    { key: 'acciones', label: t('acciones'), type: null },
+    { key: 'nombre',   label: t('nombre'),   type: 'text', w: 230, fixed: true },
+    { key: 'empresa',  label: t('empresa'),  type: 'text', w: 150 },
+    { key: 'telefono', label: t('telefono'), type: 'text', w: 140 },
+    { key: 'estado',   label: t('estado'),   type: 'text', w: 130 },
+    ...(isAdmin ? [{ key: 'agente_nombre', label: 'Agente', type: 'text', w: 140 }] : []),
+    { key: 'ai_score', label: t('score_ia'), type: 'num', w: 100 },
+    { key: 'cantidad_llamadas', label: 'Llamadas', type: 'num', w: 100 },
+    { key: 'coming',   label: 'Coming',      type: 'bool', w: 140 },
+    { key: 'comentario', label: 'Comentarios', type: null, w: 240 },
+    { key: 'acciones', label: t('acciones'), type: null, w: 130, fixed: true },
   ]
+  const visibleColumns = columns.filter(c => show(c.key))
 
   function handleSort(col) {
     if (!col.type) return
@@ -244,6 +273,38 @@ export default function Clientes() {
             }}>{e.label[lang] || e.label.es}</button>
           ))}
         </div>
+
+        {/* Selector de columnas */}
+        <div style={{ position: 'relative', marginLeft: 'auto' }}>
+          <button onClick={() => setShowColMenu(v => !v)} style={{
+            display: 'flex', alignItems: 'center', gap: '7px',
+            padding: '8px 14px', borderRadius: '9px', fontSize: '13px', fontWeight: '500',
+            background: '#0d1117', border: '1px solid #1a2744', color: '#4a6fa5', cursor: 'pointer',
+          }}>
+            <SlidersHorizontal size={14} /> Columnas
+          </button>
+          {showColMenu && (
+            <>
+              <div onClick={() => setShowColMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
+                background: '#0d1117', border: '1px solid #1a2744', borderRadius: '10px',
+                padding: '8px', minWidth: '200px', boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+              }}>
+                <p style={{ fontSize: '10px', fontWeight: '700', color: '#2d4a7a', textTransform: 'uppercase', letterSpacing: '0.7px', padding: '4px 8px 8px' }}>Mostrar columnas</p>
+                {columns.filter(c => !c.fixed).map(c => (
+                  <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 8px', borderRadius: '7px', cursor: 'pointer', fontSize: '13px', color: '#e2e8f0' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#111827'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <input type="checkbox" checked={show(c.key)} onChange={() => toggleCol(c.key)}
+                      style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: '#3b82f6' }} />
+                    {c.label}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Barra bulk — solo admin */}
@@ -280,35 +341,43 @@ export default function Clientes() {
 
       {/* Tabla */}
       <div style={{ background: '#0d1117', border: '1px solid #1a2744', borderRadius: '14px', overflow: 'auto', flex: 1 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table className="cli-table" style={{ width: visibleColumns.reduce((s, c) => s + widthOf(c), 0), minWidth: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>
+            {visibleColumns.map(col => <col key={col.key} style={{ width: widthOf(col) + 'px' }} />)}
+          </colgroup>
           <thead>
             <tr style={{ borderBottom: '1px solid #1a2744' }}>
-              {columns.map((col, idx) => (
+              {visibleColumns.map((col, idx) => (
                 <th key={col.key}
                   onClick={() => handleSort(col)}
                   style={{
+                    position: 'relative',
                     textAlign: 'left', fontSize: '11px', fontWeight: '600',
                     color: sort.key === col.key ? '#60a5fa' : '#2d4a7a',
                     textTransform: 'uppercase', letterSpacing: '0.8px', padding: '14px 18px',
                     whiteSpace: 'nowrap', userSelect: 'none', cursor: col.type ? 'pointer' : 'default',
                   }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: idx === 0 ? '10px' : '5px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: idx === 0 ? '10px' : '5px', overflow: 'hidden' }}>
                     {isAdmin && idx === 0 && (
                       <input type="checkbox" checked={allSelected} onChange={toggleAll} onClick={e => e.stopPropagation()}
                         style={{ width: '15px', height: '15px', cursor: 'pointer', accentColor: '#3b82f6', flexShrink: 0 }} />
                     )}
-                    {col.label}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{col.label}</span>
                     {col.type && sort.key === col.key && (
-                      <span style={{ fontSize: '9px' }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>
+                      <span style={{ fontSize: '9px', flexShrink: 0 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>
                     )}
                   </div>
+                  {/* Manija para redimensionar */}
+                  <div onMouseDown={e => startResize(e, col)} onClick={e => e.stopPropagation()}
+                    title="Arrastrá para ajustar el ancho"
+                    style={{ position: 'absolute', top: 0, right: 0, width: '8px', height: '100%', cursor: 'col-resize' }} />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {ordenados.length === 0 ? (
-              <tr><td colSpan={columns.length} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
+              <tr><td colSpan={visibleColumns.length} style={{ textAlign: 'center', color: '#2d4a7a', padding: '48px', fontSize: '14px' }}>
                 No hay clientes en esta categoría
               </td></tr>
             ) : ordenados.map((c, i) => {
@@ -338,16 +407,16 @@ export default function Clientes() {
                     </button>
                     </div>
                   </td>
-                  <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8' }}>{c.empresa || '—'}</td>
-                  <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8' }}>{c.telefono || '—'}</td>
-                  <td style={{ padding: '14px 18px' }}>
+                  {show('empresa') && <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.empresa || '—'}</td>}
+                  {show('telefono') && <td style={{ padding: '14px 18px', fontSize: '13px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.telefono || '—'}</td>}
+                  {show('estado') && <td style={{ padding: '14px 18px' }}>
                     <span style={{
                       fontSize: '11px', fontWeight: '600', padding: '4px 10px', borderRadius: '20px',
                       background: s.bg, color: s.color, border: `1px solid ${s.border}`,
                       whiteSpace: 'nowrap',
                     }}>{getEstadoLabel(c.estado, lang)}</span>
-                  </td>
-                  {isAdmin && (
+                  </td>}
+                  {isAdmin && show('agente_nombre') && (
                     <td style={{ padding: '14px 18px' }}>
                       <p style={{ fontSize: '12px', fontWeight: '600', color: '#60a5fa' }}>{c.agente_nombre || '—'}</p>
                       {c.agente_anterior && (
@@ -355,7 +424,7 @@ export default function Clientes() {
                       )}
                     </td>
                   )}
-                  <td style={{ padding: '14px 18px' }}>
+                  {show('ai_score') && <td style={{ padding: '14px 18px' }}>
                     {c.ai_score ? (
                       <div style={{
                         width: '36px', height: '36px', borderRadius: '50%',
@@ -368,14 +437,14 @@ export default function Clientes() {
                     ) : (
                       <span style={{ fontSize: '12px', color: '#2d4a7a' }}>{t('sin_calcular')}</span>
                     )}
-                  </td>
-                  <td style={{ padding: '14px 18px' }}>
+                  </td>}
+                  {show('cantidad_llamadas') && <td style={{ padding: '14px 18px' }}>
                     <span style={{ background: 'rgba(37,99,235,0.1)', color: '#60a5fa', padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
                       {c.cantidad_llamadas || 0}
                     </span>
-                  </td>
+                  </td>}
                   {/* Coming column */}
-                  <td style={{ padding: '14px 18px' }}>
+                  {show('coming') && <td style={{ padding: '14px 18px' }}>
                     {c.coming_account ? (
                       <span style={{
                         fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px',
@@ -398,10 +467,10 @@ export default function Clientes() {
                         Crear cuenta
                       </button>
                     )}
-                  </td>
+                  </td>}
 
                   {/* Último comentario */}
-                  <td style={{ padding: '14px 18px', maxWidth: '240px' }}>
+                  {show('comentario') && <td style={{ padding: '14px 18px' }}>
                     {comentarios[c.id] ? (
                       <div title={comentarios[c.id].notas}>
                         <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{comentarios[c.id].notas}</p>
@@ -410,7 +479,7 @@ export default function Clientes() {
                     ) : (
                       <span style={{ fontSize: '12px', color: '#2d4a7a' }}>—</span>
                     )}
-                  </td>
+                  </td>}
 
                   <td style={{ padding: '14px 18px' }}>
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -436,6 +505,10 @@ export default function Clientes() {
           </tbody>
         </table>
       </div>
+      <style>{`
+        .cli-table td, .cli-table th { overflow: hidden; text-overflow: ellipsis; }
+        @keyframes spin { to { transform: rotate(360deg) } }
+      `}</style>
 
       {modal && (
         <ModalCliente
