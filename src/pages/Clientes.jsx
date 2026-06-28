@@ -28,6 +28,7 @@ export default function Clientes() {
   const [asignando, setAsignando] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
+  const [comentarios, setComentarios] = useState({}) // cliente_id -> última llamada
 
   useEffect(() => {
     fetchClientes()
@@ -38,7 +39,18 @@ export default function Clientes() {
     let query = supabase.from('clientes').select('*').order('created_at', { ascending: false })
     if (!isAdmin) query = query.eq('agente_id', user.id)
     const { data } = await query
-    if (data) setClientes(data)
+    if (data) { setClientes(data); fetchComentarios(data.map(c => c.id)) }
+  }
+
+  async function fetchComentarios(ids) {
+    if (!ids || !ids.length) { setComentarios({}); return }
+    const { data } = await supabase.from('llamadas')
+      .select('cliente_id, notas, fecha')
+      .in('cliente_id', ids)
+      .order('fecha', { ascending: false })
+    const map = {}
+    if (data) for (const ll of data) { if (!map[ll.cliente_id]) map[ll.cliente_id] = ll } // la primera = la más reciente
+    setComentarios(map)
   }
 
   async function fetchAgentes() {
@@ -143,6 +155,7 @@ export default function Clientes() {
     { key: 'ai_score', label: t('score_ia'), type: 'num' },
     { key: 'cantidad_llamadas', label: 'Llamadas', type: 'num' },
     { key: 'coming',   label: 'Coming',      type: 'bool' },
+    { key: 'comentario', label: 'Comentarios', type: null },
     { key: 'acciones', label: t('acciones'), type: null },
   ]
 
@@ -384,6 +397,18 @@ export default function Clientes() {
                         {comingLoading === c.id ? <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <TrendingUp size={11} />}
                         Crear cuenta
                       </button>
+                    )}
+                  </td>
+
+                  {/* Último comentario */}
+                  <td style={{ padding: '14px 18px', maxWidth: '240px' }}>
+                    {comentarios[c.id] ? (
+                      <div title={comentarios[c.id].notas}>
+                        <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{comentarios[c.id].notas}</p>
+                        <p style={{ fontSize: '10px', color: '#4a6fa5', marginTop: '2px' }}>{new Date(comentarios[c.id].fecha).toLocaleDateString('es-AR')}</p>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#2d4a7a' }}>—</span>
                     )}
                   </td>
 
