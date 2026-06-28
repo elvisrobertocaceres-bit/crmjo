@@ -29,9 +29,21 @@ export default function Agentes() {
     setLoading(false)
   }
 
-  async function handleEliminar(id) {
-    if (!confirm('¿Eliminar este agente?')) return
-    await supabase.from('usuarios').delete().eq('id', id)
+  async function handleEliminar(id, nombre) {
+    // Contar clientes asignados (la FK impide borrar si tiene)
+    const { count } = await supabase.from('clientes').select('id', { count: 'exact', head: true }).eq('agente_id', id)
+    const n = count || 0
+    const msg = n > 0
+      ? `El agente "${nombre}" tiene ${n} cliente${n > 1 ? 's' : ''} asignado${n > 1 ? 's' : ''}.\nSi lo eliminás, esos clientes quedarán SIN agente (podrás reasignarlos después).\n\n¿Continuar?`
+      : `¿Eliminar al agente "${nombre}"?`
+    if (!confirm(msg)) return
+    // Desasignar clientes para no violar la clave foránea
+    if (n > 0) {
+      const up = await supabase.from('clientes').update({ agente_id: null, agente_nombre: null }).eq('agente_id', id)
+      if (up.error) { alert('Error al desasignar clientes: ' + up.error.message); return }
+    }
+    const del = await supabase.from('usuarios').delete().eq('id', id)
+    if (del.error) { alert('No se pudo eliminar el agente: ' + del.error.message); return }
     fetchAgentes()
   }
 
@@ -104,7 +116,7 @@ export default function Agentes() {
                 <p style={{ fontSize: '12px', color: '#4a6fa5' }}>{a.email}</p>
               </div>
             </div>
-            <button onClick={() => handleEliminar(a.id)} style={{
+            <button onClick={() => handleEliminar(a.id, a.nombre)} style={{
               padding: '7px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.2)',
               background: 'rgba(239,68,68,0.08)', color: '#f87171', cursor: 'pointer',
             }}>
