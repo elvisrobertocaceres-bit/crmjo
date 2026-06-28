@@ -305,6 +305,21 @@ export const ESTADOS_CONFIG = [
   { key: 'colgo',           color: '#f97316', bg: 'rgba(249,115,22,0.08)',  border: 'rgba(249,115,22,0.2)',   label: { es: 'Colgó',              en: 'Hung Up',         pt: 'Desligou',          ru: 'Сбросил звонок',  uk: 'Скинув дзвінок', de: 'Aufgelegt',        fr: 'A raccroché',     it: 'Ha riagganciato', pl: 'Rozłączył się'  } },
   { key: 'buzon_voz',       color: '#6366f1', bg: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.3)',   label: { es: 'Buzón de Voz',       en: 'Voicemail',       pt: 'Caixa de Voz',      ru: 'Голосовая почта', uk: 'Голосова пошта', de: 'Mailbox',          fr: 'Messagerie',      it: 'Segreteria',   pl: 'Poczta głosowa' } },
   { key: 'descartado',      color: '#475569', bg: 'rgba(51,65,85,0.12)',    border: 'rgba(51,65,85,0.3)',     label: { es: 'Descartado',         en: 'Discarded',       pt: 'Descartado',        ru: 'Отклонён',        uk: 'Відхилений',     de: 'Verworfen',        fr: 'Rejeté',          it: 'Scartato',     pl: 'Odrzucony'      } },
+  // ── Embudo comercial (PDF Call Center) ──
+  { key: 'asignado',        color: '#818cf8', bg: 'rgba(129,140,248,0.12)', border: 'rgba(129,140,248,0.3)', label: { es: 'Asignado',          en: 'Assigned' } },
+  { key: 'primer_intento',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  label: { es: 'Primer Intento',    en: 'First Attempt' } },
+  { key: 'contactado',      color: '#38bdf8', bg: 'rgba(56,189,248,0.12)',  border: 'rgba(56,189,248,0.3)',  label: { es: 'Contactado',        en: 'Contacted' } },
+  { key: 'interesado',      color: '#34d399', bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',  label: { es: 'Interesado',        en: 'Interested' } },
+  { key: 'no_interesado',   color: '#f87171', bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   label: { es: 'No Interesado',     en: 'Not Interested' } },
+  { key: 'calificado',      color: '#10b981', bg: 'rgba(16,185,129,0.14)',  border: 'rgba(16,185,129,0.35)', label: { es: 'Calificado',        en: 'Qualified' } },
+  { key: 'no_calificado',   color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', border: 'rgba(148,163,184,0.3)', label: { es: 'No Calificado',     en: 'Not Qualified' } },
+  { key: 'cierre_pendiente', color: '#fb923c', bg: 'rgba(251,146,60,0.12)', border: 'rgba(251,146,60,0.3)',  label: { es: 'Cierre Pendiente',  en: 'Closing Pending' } },
+  { key: 'vendido',         color: '#2563eb', bg: 'rgba(37,99,235,0.16)',   border: 'rgba(37,99,235,0.4)',   label: { es: 'Vendido',           en: 'Sold' } },
+  { key: 'pago_pendiente',  color: '#eab308', bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.3)',   label: { es: 'Pago Pendiente',    en: 'Payment Pending' } },
+  { key: 'cliente_activo',  color: '#14b8a6', bg: 'rgba(20,184,166,0.12)',  border: 'rgba(20,184,166,0.3)',  label: { es: 'Cliente Activo',    en: 'Active Client' } },
+  { key: 'reciclar',        color: '#a78bfa', bg: 'rgba(139,92,246,0.12)',  border: 'rgba(139,92,246,0.3)',  label: { es: 'Reciclar',          en: 'Recycle' } },
+  { key: 'blacklist',       color: '#ef4444', bg: 'rgba(239,68,68,0.16)',   border: 'rgba(239,68,68,0.4)',   label: { es: 'Blacklist',         en: 'Blacklist' } },
+  { key: 'baja',            color: '#64748b', bg: 'rgba(100,116,139,0.12)', border: 'rgba(100,116,139,0.3)', label: { es: 'Baja',              en: 'Dropped' } },
 ]
 
 export function getEstadoLabel(key, lang = 'es') {

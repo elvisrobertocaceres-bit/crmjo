@@ -10,6 +10,8 @@ import AIChat from './pages/AIChat'
 import Configuracion from './pages/Configuracion'
 import Agentes from './pages/Agentes'
 import ComingPage from './pages/Coming'
+import Deals from './pages/Deals'
+import Seguimientos from './pages/Seguimientos'
 
 export default function App() {
   const { user } = useAuth()
@@ -29,6 +31,8 @@ export default function App() {
           <Route path="/ai" element={<AIChat />} />
           <Route path="/config" element={<Configuracion />} />
           <Route path="/agentes" element={<Agentes />} />
+          <Route path="/deals" element={<Deals />} />
+          <Route path="/seguimientos" element={<Seguimientos />} />
           <Route path="/coming" element={<ComingPage />} />
         </Routes>
       </main>

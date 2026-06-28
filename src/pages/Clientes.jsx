@@ -16,6 +16,20 @@ function boolBadge(v) {
 }
 const fdate = (d) => d ? new Date(d).toLocaleDateString('es-AR') : '—'
 const txt = (v) => (v != null && v !== '') ? v : '—'
+// Badge de temperatura (Caliente / Tibio / Frío)
+function tempBadge(v) {
+  if (!v) return <span style={{ fontSize: '12px', color: '#2d4a7a' }}>—</span>
+  const k = v.toString().toLowerCase()
+  const map = {
+    caliente: { c: '#f87171', b: 'rgba(239,68,68,0.12)', d: 'rgba(239,68,68,0.3)', t: '🔥 Caliente' },
+    tibio:    { c: '#fbbf24', b: 'rgba(245,158,11,0.12)', d: 'rgba(245,158,11,0.3)', t: '🌤 Tibio' },
+    frio:     { c: '#60a5fa', b: 'rgba(37,99,235,0.12)', d: 'rgba(37,99,235,0.3)', t: '❄ Frío' },
+    'frío':   { c: '#60a5fa', b: 'rgba(37,99,235,0.12)', d: 'rgba(37,99,235,0.3)', t: '❄ Frío' },
+  }
+  const s = map[k]
+  if (!s) return <span style={{ fontSize: '12px', color: '#94a3b8' }}>{v}</span>
+  return <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 9px', borderRadius: '20px', background: s.b, color: s.c, border: `1px solid ${s.d}` }}>{s.t}</span>
+}
 
 // Columnas extra (segmentación / datos comerciales). Ocultas por defecto.
 const EXTRA_COLS = [
@@ -41,6 +55,12 @@ const EXTRA_COLS = [
   { key: 'estado_pago',                label: 'Estado de pago',        type: 'text', w: 140, render: c => txt(c.estado_pago) },
   { key: 'consentimiento_contacto',    label: 'Consent. contacto',     type: 'bool', w: 150, render: c => boolBadge(c.consentimiento_contacto) },
   { key: 'motivo_perdida',             label: 'Motivo de pérdida',     type: 'text', w: 170, render: c => txt(c.motivo_perdida) },
+  { key: 'apellido',                   label: 'Apellido',              type: 'text', w: 130, render: c => txt(c.apellido) },
+  { key: 'temperatura',                label: 'Temperatura',           type: 'text', w: 130, render: c => tempBadge(c.temperatura) },
+  { key: 'cantidad_intentos',          label: 'Intentos',              type: 'num',  w: 100, render: c => c.cantidad_intentos != null ? c.cantidad_intentos : '—' },
+  { key: 'monto_vendido',              label: 'Monto vendido',         type: 'num',  w: 140, render: c => (c.monto_vendido != null && c.monto_vendido !== '') ? '$' + Number(c.monto_vendido).toLocaleString('es-AR') : '—' },
+  { key: 'do_not_call',                label: 'Do Not Call',           type: 'bool', w: 130, render: c => boolBadge(c.do_not_call) },
+  { key: 'score_qa',                   label: 'Score QA',              type: 'num',  w: 110, render: c => c.score_qa != null && c.score_qa !== '' ? c.score_qa : '—' },
 ]
 const EXTRA_KEYS = EXTRA_COLS.map(c => c.key)
 
